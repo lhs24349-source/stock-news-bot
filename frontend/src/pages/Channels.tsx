@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Send, Plus, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
+import { Send, MessageSquare, Plus, Trash2, CheckCircle2, XCircle, X } from 'lucide-react';
 
 export function Channels() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', channel_type: 'telegram', token: '', chat_id: '', webhook_url: '' });
 
-  const { data: channels, isLoading } = useQuery({
+  const { data: channels, isLoading, isError } = useQuery({
     queryKey: ['channels'],
     queryFn: async () => {
       const { data } = await api.get('/channels');
@@ -18,8 +18,6 @@ export function Channels() {
 
   const addMutation = useMutation({
     mutationFn: async (newData: any) => {
-      let config = {};
-      if (newData.channel_type === 'telegram') config = { token: newData.token, chat_id: newData.chat_id };
       await api.post('/channels', newData);
     },
     onSuccess: () => {
