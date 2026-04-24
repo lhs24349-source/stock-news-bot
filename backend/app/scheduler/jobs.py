@@ -261,6 +261,27 @@ async def _save_news(item, match) -> None:
             pass
 
 
+async def cleanup_old_news(days_to_keep: int = 14) -> None:
+    """오래된 뉴스 데이터를 DB에서 자동으로 삭제합니다."""
+    from sqlalchemy import delete
+    from datetime import timedelta
+    from app.models.news import News
+
+    threshold = now_kst() - timedelta(days=days_to_keep)
+    factory = get_session_factory()
+    
+    try:
+        async with factory() as session:
+            stmt = delete(News).where(News.published_at < threshold)
+            result = await session.execute(stmt)
+            await session.commit()
+            
+            if result.rowcount > 0:
+                logger.info("🧹 오래된 DB 뉴스 삭제 완료", deleted_count=result.rowcount, kept_days=days_to_keep)
+    except Exception as e:
+        logger.error("DB 정리 중 오류 발생", error=str(e))
+
+
 async def _send_to_all_channels(message: NotificationMessage) -> int:
     """모든 활성 채널로 알림을 전송합니다 (실패 격리)."""
     from app.config import get_settings

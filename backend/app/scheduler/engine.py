@@ -45,6 +45,15 @@ async def start_scheduler() -> None:
     if not scheduler.running:
         scheduler.start()
         logger.info("APScheduler 시작됨", timezone=str(KST))
+        
+        # 시스템 기본 스케줄 등록: 매일 새벽 4시에 14일 지난 오래된 뉴스 삭제
+        from app.scheduler.jobs import cleanup_old_news
+        add_cron_job(
+            job_id="system_db_cleanup",
+            func=cleanup_old_news,
+            cron_expression="0 4 * * *",
+            days_to_keep=14
+        )
 
 
 async def shutdown_scheduler() -> None:
