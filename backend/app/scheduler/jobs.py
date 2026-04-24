@@ -117,13 +117,23 @@ async def run_news_pipeline(
             now = now_kst()
             start_time = now - timedelta(hours=hours)
             time_range = f"{format_kst(start_time)}~{format_kst(now)}"
+            schedule_info_str = f"최근 {hours}시간 주기적 수집" if hours <= 24 else "스케줄 자동 수집"
 
             for group_name, articles in matched_news.items():
+                group_dict = next((g for g in keyword_groups if g["name"] == group_name), None)
+                keywords_info_str = ""
+                if group_dict:
+                    inc = ", ".join(group_dict["keywords"])
+                    exc = ", ".join(group_dict["exclude_keywords"]) if group_dict.get("exclude_keywords") else "없음"
+                    keywords_info_str = f"포함 [{inc}] / 제외 [{exc}]"
+
                 msg = NotificationMessage(
                     keyword_group=group_name,
                     articles=articles,
                     time_range=time_range,
                     total_count=len(articles),
+                    keywords_info=keywords_info_str,
+                    schedule_info=schedule_info_str,
                 )
                 sent = await _send_to_all_channels(msg)
                 result["notifications_sent"] += sent
@@ -160,7 +170,8 @@ async def run_digest_pipeline(
         logger.info("요약할 뉴스가 없습니다")
         return result
 
-    # 키워드 그룹별로 분류
+    # 키워드 그룹별로 분류 (키워드 정보도 가져오기 위해 로드)
+    keyword_groups = await _load_keyword_groups()
     matched_news: dict[str, list] = {}
     for item in recent_news:
         if not item.keyword_group:
@@ -176,12 +187,23 @@ async def run_digest_pipeline(
 
     # 알림 발송
     time_range = f"{format_kst(start_time)}~{format_kst(now)} 요약"
+    schedule_info_str = "특정 시간대 지정 요약(Digest)"
+    
     for group_name, articles in matched_news.items():
+        group_dict = next((g for g in keyword_groups if g["name"] == group_name), None)
+        keywords_info_str = ""
+        if group_dict:
+            inc = ", ".join(group_dict["keywords"])
+            exc = ", ".join(group_dict["exclude_keywords"]) if group_dict.get("exclude_keywords") else "없음"
+            keywords_info_str = f"포함 [{inc}] / 제외 [{exc}]"
+
         msg = NotificationMessage(
-            keyword_group=f"📊 {group_name} (일일 요약)",
+            keyword_group=f"{group_name} (요약)",
             articles=articles,
             time_range=time_range,
             total_count=len(articles),
+            keywords_info=keywords_info_str,
+            schedule_info=schedule_info_str,
         )
         sent = await _send_to_all_channels(msg)
         result["notifications_sent"] += sent

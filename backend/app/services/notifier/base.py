@@ -34,6 +34,8 @@ class NotificationMessage:
     time_range: str = ""
     total_count: int = 0
     next_alert_time: Optional[str] = None
+    keywords_info: str = ""
+    schedule_info: str = ""
 
 
 class BaseNotifier(ABC):
@@ -71,30 +73,40 @@ class BaseNotifier(ABC):
         """
         ...
 
-    def format_news_list(self, message: NotificationMessage) -> str:
-        """뉴스 목록을 기본 텍스트 포맷으로 변환합니다.
-
-        각 채널에서 오버라이드하여 채널별 포맷을 적용할 수 있습니다.
-        """
+    def format_news_list(self, message: NotificationMessage, limit: int = 20) -> str:
+        """뉴스 목록을 포맷팅합니다. Telegram/Discord의 제한을 고려해 limit개만 표시합니다."""
         lines = []
-        emoji = "📢" if message.keyword_group else "📰"
-        lines.append(
-            f"{emoji} [{message.keyword_group}] 뉴스 "
-            f"({message.time_range})"
-        )
-
-        for article in message.articles:
+        emoji = "📊" if "요약" in message.keyword_group else "📢"
+        lines.append(f"{emoji} [{message.keyword_group}]")
+        
+        if message.schedule_info:
+            lines.append(f"⏱️ 스케줄: {message.schedule_info}")
+        if message.keywords_info:
+            lines.append(f"🔑 키워드: {message.keywords_info}")
+        if message.time_range:
+            lines.append(f"⏳ 시간: {message.time_range}")
+            
+        lines.append("\n━━━━━━━━━━━━━━━━━━━━━━\n")
+        
+        articles = message.articles
+        total_count = message.total_count or len(articles)
+        
+        for idx, article in enumerate(articles[:limit], 1):
             title = article.get("title", "")
             time_str = article.get("time", "")
             url = article.get("url", "")
-            lines.append(f"• {title} - {time_str}")
+            lines.append(f"{idx}. {title} [{time_str}]")
             if url:
-                lines.append(f"  🔗 {url}")
-
-        lines.append("")
-        lines.append("━" * 20)
-        count = message.total_count or len(message.articles)
-        footer = f"📊 총 {count}건"
+                lines.append(f"   🔗 {url}")
+            lines.append("")
+            
+        if total_count > limit:
+            remaining = total_count - limit
+            lines.append(f"...외 {remaining}건의 뉴스가 더 있습니다.")
+            lines.append("전체 내역은 웹 페이지에서 스크롤하여 확인해주세요!")
+            
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        footer = f"📊 총 수집: {total_count}건"
         if message.next_alert_time:
             footer += f" | 다음 알림: {message.next_alert_time}"
         lines.append(footer)
