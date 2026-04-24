@@ -8,13 +8,15 @@ export function Keywords() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', keywords: '', exclude_keywords: '' });
 
-  const { data: keywords, isLoading } = useQuery({
+  const { data: keywords, isLoading, isError } = useQuery({
     queryKey: ['keywords'],
     queryFn: async () => {
       const { data } = await api.get('/keywords');
       return data;
     },
   });
+
+  // ... (addMutation 등 그대로 유지) ...
 
   const addMutation = useMutation({
     mutationFn: async (newData: any) => {
@@ -94,7 +96,9 @@ export function Keywords() {
 
       {isLoading ? (
         <div className="h-40 flex items-center justify-center text-muted-foreground">로딩 중...</div>
-      ) : keywords?.length === 0 ? (
+      ) : isError ? (
+        <div className="h-40 flex items-center justify-center text-destructive font-medium">서버와 연결할 수 없습니다. (CORS 또는 API URL 확인)</div>
+      ) : (!keywords || keywords.length === 0) ? (
         <div className="border-2 border-dashed border-muted rounded-xl p-12 text-center">
           <Tags className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
           <h3 className="text-lg font-medium">등록된 키워드 그룹이 없습니다</h3>

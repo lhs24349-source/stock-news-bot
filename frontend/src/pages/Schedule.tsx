@@ -9,13 +9,15 @@ export function Schedule() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', schedule_type: 'interval', interval_minutes: 60, cron: '0 16 * * *', start_hour: 3, end_hour: 7 });
 
-  const { data: schedules, isLoading } = useQuery({
+  const { data: schedules, isLoading, isError } = useQuery({
     queryKey: ['schedule'],
     queryFn: async () => {
       const { data } = await api.get('/schedule');
       return data;
     },
   });
+
+  // ... (addMutation 등 그대로 유지) ...
 
   const addMutation = useMutation({
     mutationFn: async (newData: any) => {
@@ -59,7 +61,9 @@ export function Schedule() {
   const getScheduleTypeLabel = (type: string) => {
     switch (type) {
       case 'interval': return '주기적 실행';
+      case 'interval_silent': return '주기적 수집 (알림 X)';
       case 'digest': return '지정 시간 요약';
+      case 'window_digest': return '시간대 집중 수집/요약';
       case 'backfill': return '과거 데이터 수집';
       default: return type;
     }
@@ -153,7 +157,9 @@ export function Schedule() {
 
       {isLoading ? (
         <div className="h-40 flex items-center justify-center text-muted-foreground">로딩 중...</div>
-      ) : schedules?.length === 0 ? (
+      ) : isError ? (
+        <div className="h-40 flex items-center justify-center text-destructive font-medium">서버와 연결할 수 없습니다. (CORS 또는 API URL 확인)</div>
+      ) : (!schedules || schedules.length === 0) ? (
         <div className="border-2 border-dashed border-muted rounded-xl p-12 text-center">
           <Calendar className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
           <h3 className="text-lg font-medium">등록된 스케줄이 없습니다</h3>

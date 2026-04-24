@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     scheduler_timezone: str = "Asia/Seoul"
 
     # ── CORS ─────────────────────────────────────────────────
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "*"
 
     # ── Sentry (선택) ────────────────────────────────────────
     sentry_dsn: Optional[str] = None
