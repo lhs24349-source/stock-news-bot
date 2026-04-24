@@ -20,7 +20,9 @@ from app.scheduler.engine import (
     add_interval_job,
     list_jobs,
     remove_job,
+    get_scheduler,
 )
+from app.scheduler.jobs import run_news_pipeline, run_digest_pipeline
 from app.schemas.schedule import (
     ScheduleCreate,
     ScheduleResponse,
@@ -85,15 +87,56 @@ async def create_schedule(
         add_interval_job(
             job_id=f"schedule_{schedule.id}",
             func=run_news_pipeline,
-            minutes=body.config.get("minutes", 30),
+            minutes=body.config.get("minutes", 60),
+            send_notification=True,
+        )
+    elif body.schedule_type == "interval_silent":
+        from app.scheduler.jobs import run_news_pipeline
+        add_interval_job(
+            job_id=f"schedule_{schedule.id}",
+            func=run_news_pipeline,
+            minutes=body.config.get("minutes", 60),
+            send_notification=False,
         )
     elif body.schedule_type == "digest":
         from app.scheduler.jobs import run_news_pipeline
-        cron_expr = body.config.get("cron", "0 9,18 * * *")
+        cron_expr = body.config.get("cron_expression", body.config.get("cron", "0 18 * * *"))
         add_cron_job(
             job_id=f"schedule_{schedule.id}",
             func=run_news_pipeline,
             cron_expression=cron_expr,
+            hours=24,
+            send_notification=True,
+        )
+    elif body.schedule_type == "window_digest":
+        from app.scheduler.jobs import run_news_pipeline, run_digest_pipeline
+        start_hour = int(body.config.get("start_hour", 3))
+        end_hour = int(body.config.get("end_hour", 7))
+        interval = int(body.config.get("interval_minutes", 10))
+
+        # 자정을 넘기는 시간대 처리 (예: 22시 ~ 2시)
+        if start_hour < end_hour:
+            hour_range = f"{start_hour}-{end_hour - 1}"
+            duration = end_hour - start_hour
+        else:
+            hour_range = f"{start_hour}-23,0-{end_hour - 1}"
+            duration = (24 - start_hour) + end_hour
+
+        # 1. 조용한 수집기 등록 (알림X)
+        add_cron_job(
+            job_id=f"schedule_{schedule.id}_collect",
+            func=run_news_pipeline,
+            cron_expression=f"*/{interval} {hour_range} * * *",
+            hours=1,
+            send_notification=False,
+        )
+        
+        # 2. 요약 알림 전송기 등록 (알림O)
+        add_cron_job(
+            job_id=f"schedule_{schedule.id}_digest",
+            func=run_digest_pipeline,
+            cron_expression=f"0 {end_hour} * * *",
+            hours=duration,
         )
 
     return ScheduleResponse(
@@ -123,6 +166,8 @@ async def delete_schedule(
         raise HTTPException(status_code=404, detail="스케줄을 찾을 수 없습니다")
 
     remove_job(f"schedule_{schedule_id}")
+    remove_job(f"schedule_{schedule_id}_collect")
+    remove_job(f"schedule_{schedule_id}_digest")
     await db.delete(schedule)
 
 

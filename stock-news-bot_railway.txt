@@ -1,1 +1,7 @@
 stock-news-bot-production-8eea.up.railway.app
+
+프론트 엔드 : https://vercel.com/lhs24349-2308s-projects/stock-news-bot
+
+백엔드 : https://railway.com/project/dff95622-fed3-4068-b395-a40b6fd9ec5d/service/215792bb-63f8-49cb-9020-bec256ab8cbe?environmentId=418b8b3b-cffb-427e-9b80-d7a85269cf3e
+
+https://stock-news-bot-gamma.vercel.app/

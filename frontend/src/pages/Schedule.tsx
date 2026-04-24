@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 export function Schedule() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', schedule_type: 'interval', interval_minutes: 60 });
+  const [formData, setFormData] = useState({ name: '', schedule_type: 'interval', interval_minutes: 60, cron: '0 16 * * *', start_hour: 3, end_hour: 7 });
 
   const { data: schedules, isLoading } = useQuery({
     queryKey: ['schedule'],
@@ -19,10 +19,15 @@ export function Schedule() {
 
   const addMutation = useMutation({
     mutationFn: async (newData: any) => {
+      let config: any = {};
+      if (newData.schedule_type === 'digest') config = { cron_expression: newData.cron };
+      else if (newData.schedule_type === 'window_digest') config = { start_hour: newData.start_hour, end_hour: newData.end_hour, interval_minutes: newData.interval_minutes };
+      else config = { minutes: Number(newData.interval_minutes) };
+
       await api.post('/schedule', {
         name: newData.name,
         schedule_type: newData.schedule_type,
-        config: { interval_minutes: Number(newData.interval_minutes) },
+        config: config,
         is_active: true
       });
     },
@@ -94,13 +99,49 @@ export function Schedule() {
               <div>
                 <label className="block text-sm font-medium mb-1">실행 방식</label>
                 <select className="w-full border rounded-md p-2 bg-transparent" value={formData.schedule_type} onChange={e => setFormData({...formData, schedule_type: e.target.value})}>
-                  <option value="interval">주기적 실행 (Interval)</option>
+                  <option value="interval">주기적 실행 (알림 O)</option>
+                  <option value="interval_silent">주기적 수집 (알림 X, DB저장만)</option>
+                  <option value="digest">지정 시간 하루 요약 (단발성)</option>
+                  <option value="window_digest">특정 시간대 집중 수집 & 요약</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">실행 주기 (분)</label>
-                <input required type="number" min="1" className="w-full border rounded-md p-2 bg-transparent" value={formData.interval_minutes} onChange={e => setFormData({...formData, interval_minutes: Number(e.target.value)})} />
-              </div>
+              
+              {formData.schedule_type.startsWith('interval') && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">실행 주기 (분)</label>
+                  <input required type="number" min="1" className="w-full border rounded-md p-2 bg-transparent" value={formData.interval_minutes} onChange={e => setFormData({...formData, interval_minutes: Number(e.target.value)})} />
+                </div>
+              )}
+
+              {formData.schedule_type === 'digest' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">실행 시간 (Cron 표현식)</label>
+                  <input required type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="예: 0 16 * * * (매일 오후 4시)" value={formData.cron} onChange={e => setFormData({...formData, cron: e.target.value})} />
+                  <p className="text-xs text-muted-foreground mt-1">기본값은 한국시간 기준 매일 오후 4시(16:00)입니다.</p>
+                </div>
+              )}
+
+              {formData.schedule_type === 'window_digest' && (
+                <div className="space-y-4 border p-4 rounded-lg bg-muted/20">
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium mb-1">시작 시간 (시)</label>
+                      <input required type="number" min="0" max="23" className="w-full border rounded-md p-2 bg-transparent" value={formData.start_hour} onChange={e => setFormData({...formData, start_hour: Number(e.target.value)})} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium mb-1">요약 알림 시간 (종료 시)</label>
+                      <input required type="number" min="0" max="23" className="w-full border rounded-md p-2 bg-transparent" value={formData.end_hour} onChange={e => setFormData({...formData, end_hour: Number(e.target.value)})} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">시간대 내 수집 주기 (분)</label>
+                    <input required type="number" min="1" className="w-full border rounded-md p-2 bg-transparent" value={formData.interval_minutes} onChange={e => setFormData({...formData, interval_minutes: Number(e.target.value)})} />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      예: 3시 시작, 7시 종료, 10분 주기 👉 새벽 3시~6시 59분까지 10분마다 수집 후, 7시 정각에 요약 알림 전송
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <button disabled={addMutation.isPending} type="submit" className="w-full bg-primary text-primary-foreground p-2 rounded-md font-bold mt-4 hover:bg-primary/90">
                 {addMutation.isPending ? '생성 중...' : '생성하기'}

@@ -137,6 +137,60 @@ async def run_news_pipeline(
     return result
 
 
+async def run_digest_pipeline(
+    hours: int = 24,
+) -> dict:
+    """DB에 저장된 최근 N시간의 뉴스를 읽어와 요약 알림을 발송합니다."""
+    from sqlalchemy import select
+    from datetime import timedelta
+    from app.models.news import News
+    from app.database import get_session_factory
+    
+    result = {"total_summarized": 0, "notifications_sent": 0}
+    now = now_kst()
+    start_time = now - timedelta(hours=hours)
+    
+    factory = get_session_factory()
+    async with factory() as session:
+        stmt = select(News).where(News.published_at >= start_time).order_by(News.published_at.desc())
+        news_result = await session.execute(stmt)
+        recent_news = news_result.scalars().all()
+
+    if not recent_news:
+        logger.info("요약할 뉴스가 없습니다")
+        return result
+
+    # 키워드 그룹별로 분류
+    matched_news: dict[str, list] = {}
+    for item in recent_news:
+        if not item.keyword_group:
+            continue
+        if item.keyword_group not in matched_news:
+            matched_news[item.keyword_group] = []
+        
+        matched_news[item.keyword_group].append({
+            "title": item.title,
+            "url": item.url,
+            "time": format_kst(item.published_at) if item.published_at else "",
+        })
+
+    # 알림 발송
+    time_range = f"{format_kst(start_time)}~{format_kst(now)} 요약"
+    for group_name, articles in matched_news.items():
+        msg = NotificationMessage(
+            keyword_group=f"📊 {group_name} (일일 요약)",
+            articles=articles,
+            time_range=time_range,
+            total_count=len(articles),
+        )
+        sent = await _send_to_all_channels(msg)
+        result["notifications_sent"] += sent
+        result["total_summarized"] += len(articles)
+
+    logger.info("요약 알림 파이프라인 완료", **result)
+    return result
+
+
 async def _load_keyword_groups() -> list[dict]:
     """DB에서 활성화된 키워드 그룹을 로드합니다."""
     from sqlalchemy import select
