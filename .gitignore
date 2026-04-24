@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables (실제 비밀 정보)
+.env
+backend/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+frontend/dist/
+frontend/.vite/
+
+# Database (로컬 개발용)
+*.db
+*.sqlite3
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Coverage
+coverage.xml
+.coverage.*

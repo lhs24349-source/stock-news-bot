@@ -1,0 +1,18 @@
+# 운영 의존성 포함
+-r requirements.txt
+
+# ── 테스트 ──
+pytest==8.3.5
+pytest-asyncio==0.26.0
+pytest-cov==6.1.1
+pytest-mock==3.14.0
+httpx==0.28.1
+
+# ── 타입 체크 ──
+mypy==1.15.0
+
+# ── 린팅 ──
+ruff==0.11.6
+
+# ── Pre-commit ──
+pre-commit==4.2.0
