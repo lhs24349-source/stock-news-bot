@@ -1,8 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Tags, Plus, Trash2 } from 'lucide-react';
+import { Tags, Plus, Trash2, X } from 'lucide-react';
 
 export function Keywords() {
+  const queryClient = useQueryClient();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: '', keywords: '', exclude_keywords: '' });
+
   const { data: keywords, isLoading } = useQuery({
     queryKey: ['keywords'],
     queryFn: async () => {
@@ -11,8 +16,37 @@ export function Keywords() {
     },
   });
 
+  const addMutation = useMutation({
+    mutationFn: async (newData: any) => {
+      await api.post('/keywords', newData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['keywords'] });
+      setIsModalOpen(false);
+      setFormData({ name: '', keywords: '', exclude_keywords: '' });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      if (confirm('정말 삭제하시겠습니까?')) {
+        await api.delete(`/keywords/${id}`);
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['keywords'] })
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addMutation.mutate({
+      name: formData.name,
+      keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
+      exclude_keywords: formData.exclude_keywords.split(',').map(k => k.trim()).filter(k => k),
+    });
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
@@ -21,11 +55,42 @@ export function Keywords() {
           </h1>
           <p className="text-muted-foreground mt-2">뉴스 알림을 받을 키워드 조건과 제외어를 설정합니다.</p>
         </div>
-        <button className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg font-medium flex items-center gap-2 shadow-sm transition-colors">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg font-medium flex items-center gap-2 shadow-sm transition-colors"
+        >
           <Plus size={18} />
           새 그룹 추가
         </button>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-card w-full max-w-md rounded-xl shadow-lg border p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">새 키워드 그룹 추가</h2>
+              <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">그룹 이름</label>
+                <input required type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="예: 반도체 호재" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">포함 키워드 (쉼표로 구분)</label>
+                <input required type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="예: HBM, 엔비디아, 삼성전자" value={formData.keywords} onChange={e => setFormData({...formData, keywords: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">제외 키워드 (쉼표로 구분)</label>
+                <input type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="예: 광고, 찌라시" value={formData.exclude_keywords} onChange={e => setFormData({...formData, exclude_keywords: e.target.value})} />
+              </div>
+              <button disabled={addMutation.isPending} type="submit" className="w-full bg-primary text-primary-foreground p-2 rounded-md font-bold mt-4 hover:bg-primary/90">
+                {addMutation.isPending ? '저장 중...' : '저장하기'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="h-40 flex items-center justify-center text-muted-foreground">로딩 중...</div>
@@ -34,7 +99,7 @@ export function Keywords() {
           <Tags className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
           <h3 className="text-lg font-medium">등록된 키워드 그룹이 없습니다</h3>
           <p className="text-sm text-muted-foreground mt-2 mb-6">첫 번째 키워드 그룹을 생성하고 알림을 받아보세요.</p>
-          <button className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-lg font-medium shadow-sm transition-colors">
+          <button onClick={() => setIsModalOpen(true)} className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-lg font-medium shadow-sm transition-colors">
             키워드 그룹 생성
           </button>
         </div>
@@ -45,7 +110,7 @@ export function Keywords() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-lg">{group.name}</h3>
-                  <button className="text-muted-foreground hover:text-destructive transition-colors">
+                  <button onClick={() => deleteMutation.mutate(group.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -74,11 +139,6 @@ export function Keywords() {
                       </div>
                     </div>
                   )}
-
-                  <div className="pt-4 border-t mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                    <span>유사도 임계값: <strong className="text-foreground">{group.threshold}%</strong></span>
-                    <span>상태: {group.is_active ? <span className="text-green-500 font-medium">활성</span> : '비활성'}</span>
-                  </div>
                 </div>
               </div>
             </div>
