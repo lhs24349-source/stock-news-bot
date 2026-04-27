@@ -1,10 +1,23 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
+import axios from 'axios';
 import {
   Activity, Server, Radio, Database,
   Tags, Clock, Newspaper, TrendingUp,
   CheckCircle2, XCircle, AlertTriangle
 } from 'lucide-react';
+
+/**
+ * /health와 /dashboard는 백엔드의 루트 경로(프리픽스 없음)에 등록되어 있으므로
+ * /api를 자동으로 붙이는 api 클라이언트 대신, 직접 루트 URL로 호출합니다.
+ */
+const envUrl = import.meta.env.VITE_API_URL || '';
+const rootUrl = envUrl.replace(/\/+$/, '');
+
+/** 루트 엔드포인트 호출용 (프리픽스 없음) */
+const rootApi = axios.create({
+  baseURL: rootUrl || '/',
+  headers: { 'Content-Type': 'application/json' },
+});
 
 /** 스케줄 타입 → 한글 라벨 변환 */
 function scheduleTypeLabel(type: string) {
@@ -19,21 +32,21 @@ function scheduleTypeLabel(type: string) {
 }
 
 export function Dashboard() {
-  // 헬스체크 (10초마다 갱신)
+  // 헬스체크 (10초마다 갱신) — 루트 경로 /health
   const { data: health, isLoading: healthLoading } = useQuery({
     queryKey: ['health'],
     queryFn: async () => {
-      const { data } = await api.get('/health');
+      const { data } = await rootApi.get('/health');
       return data;
     },
     refetchInterval: 10000,
   });
 
-  // 대시보드 요약 데이터 (30초마다 갱신)
+  // 대시보드 요약 데이터 (30초마다 갱신) — 루트 경로 /dashboard
   const { data: dashboard, isLoading: dashLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: async () => {
-      const { data } = await api.get('/dashboard');
+      const { data } = await rootApi.get('/dashboard');
       return data;
     },
     refetchInterval: 30000,
@@ -110,7 +123,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* ── 키워드 그룹 / 알림 채널 요약 섹션 ── */}
+      {/* ── 키워드 그룹 / 시스템 상태 요약 섹션 ── */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* 키워드 그룹 요약 카드 */}
         <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
@@ -155,7 +168,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* 알림 채널 + 시스템 상태 요약 */}
+        {/* 시스템 상태 요약 */}
         <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
           <div className="p-5 border-b bg-muted/20 flex items-center gap-2">
             <Radio className="h-5 w-5 text-primary" />
@@ -173,7 +186,7 @@ export function Dashboard() {
                   {health?.db === 'ok' ? (
                     <><CheckCircle2 size={14} className="text-green-500" /><span className="text-sm text-green-600 font-medium">정상</span></>
                   ) : (
-                    <><XCircle size={14} className="text-red-500" /><span className="text-sm text-red-600 font-medium">오류</span></>
+                    <><XCircle size={14} className="text-red-500" /><span className="text-sm text-red-600 font-medium">{health ? '오류' : '확인중...'}</span></>
                   )}
                 </div>
               </div>
@@ -186,9 +199,9 @@ export function Dashboard() {
                   {health?.redis === 'ok' ? (
                     <><CheckCircle2 size={14} className="text-green-500" /><span className="text-sm text-green-600 font-medium">정상</span></>
                   ) : health?.redis === 'not_configured' ? (
-                    <><AlertTriangle size={14} className="text-yellow-500" /><span className="text-sm text-yellow-600 font-medium">미설정</span></>
+                    <><AlertTriangle size={14} className="text-yellow-500" /><span className="text-sm text-yellow-600 font-medium">미설정 (SQLite 폴백)</span></>
                   ) : (
-                    <><XCircle size={14} className="text-red-500" /><span className="text-sm text-red-600 font-medium">오류</span></>
+                    <><XCircle size={14} className="text-red-500" /><span className="text-sm text-red-600 font-medium">{health ? '오류' : '확인중...'}</span></>
                   )}
                 </div>
               </div>
