@@ -20,8 +20,8 @@ class ScheduleCreate(BaseModel):
     )
     schedule_type: str = Field(
         ...,
-        pattern="^(backfill|interval|digest|event)$",
-        description="스케줄 종류: backfill | interval | digest | event",
+        pattern="^(backfill|interval|interval_silent|digest|window_digest|event)$",
+        description="스케줄 종류: backfill | interval | interval_silent | digest | window_digest | event",
     )
     config: dict = Field(
         ...,
@@ -36,6 +36,10 @@ class ScheduleCreate(BaseModel):
     keyword_group_ids: list[int] = Field(
         default_factory=list,
         description="대상 키워드 그룹 ID 목록",
+    )
+    is_active: bool = Field(
+        default=True,
+        description="스케줄 활성화 여부",
     )
 
 

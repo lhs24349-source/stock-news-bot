@@ -171,6 +171,64 @@ async def delete_schedule(
     await db.delete(schedule)
 
 
+@router.post(
+    "/{schedule_id}/run",
+    summary="스케줄 수동 즉시 실행",
+    description="등록된 스케줄의 작업을 즉시 1회 실행합니다.",
+)
+async def run_schedule_now(
+    schedule_id: int,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """스케줄에 설정된 작업을 즉시 수동 실행합니다."""
+    import asyncio
+    from datetime import datetime, timezone
+
+    stmt = select(ScheduleConfig).where(ScheduleConfig.id == schedule_id)
+    result = await db.execute(stmt)
+    schedule = result.scalar_one_or_none()
+
+    if not schedule:
+        raise HTTPException(status_code=404, detail="스케줄을 찾을 수 없습니다")
+
+    config = json.loads(schedule.config_json)
+
+    # 스케줄 타입에 따라 적절한 파이프라인 실행
+    if schedule.schedule_type in ("interval", "interval_silent", "backfill"):
+        pipeline_result = await run_news_pipeline(
+            hours=config.get("hours", 24),
+            send_notification=(schedule.schedule_type != "interval_silent"),
+        )
+    elif schedule.schedule_type == "digest":
+        pipeline_result = await run_news_pipeline(
+            hours=24,
+            send_notification=True,
+        )
+    elif schedule.schedule_type == "window_digest":
+        # window_digest는 수동 실행 시 현재 시점 기준으로 수집+알림
+        duration = int(config.get("end_hour", 7)) - int(config.get("start_hour", 3))
+        if duration <= 0:
+            duration += 24
+        pipeline_result = await run_news_pipeline(
+            hours=duration,
+            send_notification=True,
+        )
+    else:
+        pipeline_result = await run_news_pipeline(
+            hours=24,
+            send_notification=True,
+        )
+
+    # 마지막 실행 시각 갱신
+    schedule.last_run_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    return {
+        "message": f"스케줄 '{schedule.name}' 수동 실행 완료",
+        "result": pipeline_result,
+    }
+
+
 @router.get("/jobs", summary="실행 중인 작업 목록")
 async def get_running_jobs() -> list[dict]:
     """APScheduler에 등록된 모든 작업 목록을 반환합니다."""
