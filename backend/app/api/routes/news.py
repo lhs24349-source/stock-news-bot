@@ -54,13 +54,13 @@ async def get_news(
 
     # 페이지네이션
     if sort == "time_asc":
-        stmt = stmt.order_by(News.created_at.asc())
+        stmt = stmt.order_by(News.published_at.asc().nulls_last(), News.created_at.asc())
     elif sort == "title_asc":
         stmt = stmt.order_by(News.title.asc())
     elif sort == "keyword_asc":
-        stmt = stmt.order_by(News.keyword_group.asc(), News.created_at.desc())
+        stmt = stmt.order_by(News.keyword_group.asc(), News.published_at.desc().nulls_last(), News.created_at.desc())
     else:
-        stmt = stmt.order_by(desc(News.created_at))
+        stmt = stmt.order_by(News.published_at.desc().nulls_last(), News.created_at.desc())
 
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 

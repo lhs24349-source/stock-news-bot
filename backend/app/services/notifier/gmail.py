@@ -39,8 +39,7 @@ _ARTICLE_TEMPLATE = """
 <div style="padding:8px 0;border-bottom:1px solid #f0f0f0;">
   <strong style="color:#333;">{title}</strong>
   <span style="color:#999;font-size:12px;margin-left:8px;">{time}</span>
-  <br>
-  <a href="{url}" style="color:#5865F2;font-size:13px;text-decoration:none;">🔗 기사 보기</a>
+  <a href="{url}" style="color:#5865F2;font-size:13px;text-decoration:none;margin-left:8px;">[🔗링크]</a>
 </div>
 """
 

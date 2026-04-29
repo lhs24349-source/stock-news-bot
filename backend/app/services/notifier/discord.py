@@ -53,7 +53,7 @@ class DiscordNotifier(BaseNotifier):
                 url = article.get("url", "")
                 value = f"🕐 {time_str}"
                 if url:
-                    value += f"\n🔗 [링크]({url})"
+                    value += f" [🔗링크]({url})"
                 fields.append({
                     "name": title,
                     "value": value,
