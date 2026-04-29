@@ -8,14 +8,16 @@ export function History() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [sort, setSort] = useState('time_desc');
   const pageSize = 30;
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['news', page, search],
+    queryKey: ['news', page, search, sort],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
         page_size: String(pageSize),
+        sort: sort,
       });
       if (search) params.set('search', search);
       const { data } = await api.get(`/news?${params.toString()}`);
@@ -45,17 +47,32 @@ export function History() {
           </p>
         </div>
 
-        {/* 검색 폼 */}
-        <form onSubmit={handleSearch} className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="뉴스 제목 검색..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full h-10 pl-9 pr-4 rounded-md border border-input bg-transparent text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </form>
+        {/* 검색 & 정렬 폼 */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(1);
+            }}
+            className="h-10 px-3 py-2 rounded-md border border-input bg-transparent text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="time_desc">최신순</option>
+            <option value="time_asc">과거순</option>
+            <option value="title_asc">제목순</option>
+            <option value="keyword_asc">키워드순</option>
+          </select>
+          <form onSubmit={handleSearch} className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="뉴스 제목 검색..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full h-10 pl-9 pr-4 rounded-md border border-input bg-transparent text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </form>
+        </div>
       </div>
 
       {/* 뉴스 목록 */}

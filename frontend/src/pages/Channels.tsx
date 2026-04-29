@@ -43,10 +43,15 @@ export function Channels() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addMutation.mutate({
-      ...formData,
+    const payload = {
+      name: formData.name,
+      channel_type: formData.channel_type,
+      config: formData.channel_type === 'telegram' 
+        ? { bot_token: formData.token, chat_id: formData.chat_id } 
+        : { webhook_url: formData.webhook_url },
       is_active: true
-    });
+    };
+    addMutation.mutate(payload);
   };
 
   return (
@@ -89,10 +94,19 @@ export function Channels() {
               </div>
               
               {formData.channel_type === 'telegram' ? (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Chat ID</label>
-                  <input required type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="숫자로 된 Chat ID" value={formData.chat_id} onChange={e => setFormData({...formData, chat_id: e.target.value})} />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Bot Token</label>
+                    <input required type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="BotFather에서 발급받은 봇 토큰" value={formData.token} onChange={e => setFormData({...formData, token: e.target.value})} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Chat ID</label>
+                    <input required type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="숫자로 된 Chat ID (예: 123456789)" value={formData.chat_id} onChange={e => setFormData({...formData, chat_id: e.target.value})} />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      개인 채팅방의 경우 숫자 ID를 기입하세요. (확인 봇: @userinfobot)
+                    </p>
+                  </div>
+                </>
               ) : (
                 <div>
                   <label className="block text-sm font-medium mb-1">Webhook URL</label>

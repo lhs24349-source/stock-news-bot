@@ -35,6 +35,7 @@ async def get_news(
     keyword_group: Optional[str] = Query(None, description="키워드 그룹 필터"),
     source: Optional[str] = Query(None, description="소스 필터"),
     search: Optional[str] = Query(None, description="제목 검색어"),
+    sort: Optional[str] = Query("time_desc", description="정렬 방식 (time_desc, time_asc, title_asc, keyword_asc)"),
     db: AsyncSession = Depends(get_db),
 ) -> NewsListResponse:
     """수집된 뉴스 목록을 페이지네이션으로 조회합니다."""
@@ -52,7 +53,15 @@ async def get_news(
     total = await db.scalar(count_stmt) or 0
 
     # 페이지네이션
-    stmt = stmt.order_by(desc(News.created_at))
+    if sort == "time_asc":
+        stmt = stmt.order_by(News.created_at.asc())
+    elif sort == "title_asc":
+        stmt = stmt.order_by(News.title.asc())
+    elif sort == "keyword_asc":
+        stmt = stmt.order_by(News.keyword_group.asc(), News.created_at.desc())
+    else:
+        stmt = stmt.order_by(desc(News.created_at))
+
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(stmt)
