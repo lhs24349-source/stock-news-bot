@@ -36,8 +36,21 @@ export function Channels() {
 
   const testMutation = useMutation({
     mutationFn: async (id: number) => {
-      await api.post(`/channels/${id}/test`);
-      alert('테스트 메시지를 전송했습니다. 채널을 확인해주세요!');
+      const { data } = await api.post(`/channels/${id}/test`, {
+        channel_id: id,
+        test_message: "🔔 테스트 알림입니다. Stock News Bot이 정상 연결되었습니다!"
+      });
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        alert('테스트 발송 성공! 텔레그램을 확인해주세요.');
+      } else {
+        alert(`테스트 발송 실패: ${data.message}\n(봇 토큰이나 Chat ID가 틀렸을 수 있습니다)`);
+      }
+    },
+    onError: (err: any) => {
+      alert(`API 요청 실패: 서버 설정을 확인해주세요.`);
     }
   });
 
