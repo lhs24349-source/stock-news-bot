@@ -284,46 +284,50 @@ async def cleanup_old_news(days_to_keep: int = 14) -> None:
 
 async def _send_to_all_channels(message: NotificationMessage) -> int:
     """모든 활성 채널로 알림을 전송합니다 (실패 격리)."""
-    from app.config import get_settings
+    from sqlalchemy import select
+    from app.database import get_session_factory
+    from app.models.channel import NotificationChannel
+    import json
 
-    settings = get_settings()
     sent_count = 0
+    factory = get_session_factory()
 
-    # Telegram
-    if settings.is_telegram_configured:
-        try:
-            from app.services.notifier.telegram import TelegramNotifier
-            notifier = TelegramNotifier(
-                settings.telegram_bot_token,
-                settings.telegram_chat_id,
-            )
-            if await notifier.send(message):
-                sent_count += 1
-        except Exception as e:
-            logger.error("Telegram 전송 실패 (격리됨)", error=str(e))
+    try:
+        async with factory() as session:
+            stmt = select(NotificationChannel).where(NotificationChannel.is_active.is_(True))
+            result = await session.execute(stmt)
+            channels = result.scalars().all()
 
-    # Discord
-    if settings.is_discord_configured:
-        try:
-            from app.services.notifier.discord import DiscordNotifier
-            notifier = DiscordNotifier(settings.discord_webhook_url)
-            if await notifier.send(message):
-                sent_count += 1
-        except Exception as e:
-            logger.error("Discord 전송 실패 (격리됨)", error=str(e))
+            for channel in channels:
+                config = json.loads(channel.config_json)
 
-    # Gmail
-    if settings.is_gmail_configured:
-        try:
-            from app.services.notifier.gmail import GmailNotifier
-            notifier = GmailNotifier(
-                settings.gmail_address,
-                settings.gmail_app_password,
-                settings.gmail_recipient_list,
-            )
-            if await notifier.send(message):
-                sent_count += 1
-        except Exception as e:
-            logger.error("Gmail 전송 실패 (격리됨)", error=str(e))
+                try:
+                    if channel.channel_type == "telegram":
+                        from app.services.notifier.telegram import TelegramNotifier
+                        notifier = TelegramNotifier(
+                            config.get("bot_token", ""),
+                            config.get("chat_id", ""),
+                        )
+                        if await notifier.send(message):
+                            sent_count += 1
+                    elif channel.channel_type == "discord":
+                        from app.services.notifier.discord import DiscordNotifier
+                        notifier = DiscordNotifier(config.get("webhook_url", ""))
+                        if await notifier.send(message):
+                            sent_count += 1
+                    elif channel.channel_type == "gmail":
+                        from app.services.notifier.gmail import GmailNotifier
+                        notifier = GmailNotifier(
+                            config.get("address", ""),
+                            config.get("app_password", ""),
+                            config.get("recipients", []),
+                        )
+                        if await notifier.send(message):
+                            sent_count += 1
+                except Exception as e:
+                    logger.error(f"{channel.channel_type} 전송 실패 (격리됨)", error=str(e), channel_id=channel.id)
+
+    except Exception as e:
+        logger.error("알림 채널 로드 중 오류", error=str(e))
 
     return sent_count

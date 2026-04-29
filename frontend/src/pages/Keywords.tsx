@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Tags, Plus, Trash2, X } from 'lucide-react';
+import { Tags, Plus, Trash2, X, Pencil } from 'lucide-react';
 
 export function Keywords() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ name: '', keywords: '', exclude_keywords: '' });
 
   const { data: keywords, isLoading, isError } = useQuery({
@@ -24,10 +25,25 @@ export function Keywords() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['keywords'] });
-      setIsModalOpen(false);
-      setFormData({ name: '', keywords: '', exclude_keywords: '' });
+      closeModal();
     }
   });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: { id: number, payload: any }) => {
+      await api.put(`/keywords/${data.id}`, data.payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['keywords'] });
+      closeModal();
+    }
+  });
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    setFormData({ name: '', keywords: '', exclude_keywords: '' });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -40,11 +56,27 @@ export function Keywords() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addMutation.mutate({
+    const payload = {
       name: formData.name,
       keywords: formData.keywords.split(',').map(k => k.trim()).filter(k => k),
       exclude_keywords: formData.exclude_keywords.split(',').map(k => k.trim()).filter(k => k),
+    };
+
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload });
+    } else {
+      addMutation.mutate(payload);
+    }
+  };
+
+  const openEditModal = (group: any) => {
+    setFormData({
+      name: group.name,
+      keywords: group.keywords.join(', '),
+      exclude_keywords: group.exclude_keywords?.join(', ') || ''
     });
+    setEditingId(group.id);
+    setIsModalOpen(true);
   };
 
   return (
@@ -70,8 +102,8 @@ export function Keywords() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-card w-full max-w-md rounded-xl shadow-lg border p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">새 키워드 그룹 추가</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
+              <h2 className="text-xl font-bold">{editingId ? '키워드 그룹 수정' : '새 키워드 그룹 추가'}</h2>
+              <button onClick={closeModal} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -86,8 +118,8 @@ export function Keywords() {
                 <label className="block text-sm font-medium mb-1">제외 키워드 (쉼표로 구분)</label>
                 <input type="text" className="w-full border rounded-md p-2 bg-transparent" placeholder="예: 광고, 찌라시" value={formData.exclude_keywords} onChange={e => setFormData({...formData, exclude_keywords: e.target.value})} />
               </div>
-              <button disabled={addMutation.isPending} type="submit" className="w-full bg-primary text-primary-foreground p-2 rounded-md font-bold mt-4 hover:bg-primary/90">
-                {addMutation.isPending ? '저장 중...' : '저장하기'}
+              <button disabled={addMutation.isPending || updateMutation.isPending} type="submit" className="w-full bg-primary text-primary-foreground p-2 rounded-md font-bold mt-4 hover:bg-primary/90">
+                {(addMutation.isPending || updateMutation.isPending) ? '저장 중...' : '저장하기'}
               </button>
             </form>
           </div>
@@ -114,9 +146,14 @@ export function Keywords() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-lg">{group.name}</h3>
-                  <button onClick={() => deleteMutation.mutate(group.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={() => openEditModal(group)} className="text-muted-foreground hover:text-primary transition-colors">
+                      <Pencil size={18} />
+                    </button>
+                    <button onClick={() => deleteMutation.mutate(group.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="space-y-4">
